@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const authRouter = require('./routes/auth');
 const vehicleRouter = require('./routes/vehicles');
+const rideRouter = require('./routes/ride');
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 // 路由
 app.use('/api/auth', authRouter);
 app.use('/api/vehicles', vehicleRouter);
+app.use('/api/ride', rideRouter);
 
 // 404
 app.use((req, res) => {

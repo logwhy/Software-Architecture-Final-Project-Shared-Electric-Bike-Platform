@@ -8,7 +8,13 @@ const routes = [
     { path: '/login', component: LoginView, meta: { requiresAuth: false } },
     { path: '/register', component: RegisterView, meta: { requiresAuth: false } },
     { path: '/home', component: HomeView, meta: { requiresAuth: true } },
-    { path: '/map', component: () => import('../views/MapView.vue'), meta: { requiresAuth: true } }
+    { path: '/map', component: () => import('../views/MapView.vue'), meta: { requiresAuth: true } },
+    {
+        path: '/riding/:vehicleId',
+        name: 'Riding',
+        component: () => import('../views/RidingView.vue'),
+        meta: { requiresAuth: true }
+    }
 ]
 
 const router = createRouter({

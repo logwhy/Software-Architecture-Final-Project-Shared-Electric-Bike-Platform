@@ -21,17 +21,42 @@
         </div>
       </el-card>
     </div>
+    <el-dialog
+        v-model="unlockDialog.visible"
+        title="扫码解锁"
+        width="320px"
+        center
+        :close-on-click-modal="false"
+    >
+      <div class="text-center">
+        <div id="qrcode" ref="qrcode"></div>
+        <p class="mt-4 text-sm text-gray-600">请用APP扫描二维码解锁</p>
+      </div>
+      <template #footer>
+        <el-button @click="cancelUnlock">取消</el-button>
+        <el-button type="primary" @click="simulateScan" :loading="unlocking">
+          模拟扫码成功
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import QRCode from 'qrcode.vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const vehicles = ref([])
+const unlockDialog = ref({
+  visible: false,
+  vehicle: null
+})
+const unlocking = ref(false)
+
 let map = null
 let markers = []
 const activeVehicleId = ref(null)  // 高亮选中车辆
@@ -40,21 +65,75 @@ const focusVehicle = (vehicle) => {
   activeVehicleId.value = vehicle.id
 
   const coords = vehicle.location?.coordinates || vehicle.location
-  if (!coords || coords.length < 2) return
+  if (coords && coords.length >= 2) {
+    const [lng, lat] = coords.map(Number)
+    if (!isNaN(lng) && !isNaN(lat)) {
+      map.setZoomAndCenter(18, [lng, lat])
+    }
+  }
 
-  const [lng, lat] = coords.map(Number)
-  if (isNaN(lng) || isNaN(lat)) return
+  // 打开扫码解锁弹窗
+  unlockDialog.value = { visible: true, vehicle }
+  nextTick(() => {
+    renderQRCode(vehicle)
+  })
+}
 
-  // 地图平滑移动到车辆位置
-  map.setZoomAndCenter(18, [lng, lat])
+const renderQRCode = (vehicle) => {
+  const qr = document.getElementById('qrcode')
+  if (qr) qr.innerHTML = ''  // 清空旧二维码
+  new QRCode(qr, {
+    text: JSON.stringify({ action: 'unlock', vehicleId: vehicle.id }),
+    width: 200,
+    height: 200,
+    colorDark: '#000000',
+    colorLight: '#ffffff'
+  })
+}
 
-  // 找到对应标记并打开信息窗
-  const marker = markers.find(m => m.getTitle()?.includes(vehicle.code))
-  if (marker) {
-    map.setCenter(marker.getPosition())
-    marker.emit('click')  // 触发点击，打开信息窗
+const simulateScan = async () => {
+  unlocking.value = true
+  try {
+    const token = localStorage.getItem('token')
+    const vehicleId = unlockDialog.value.vehicle.id
+
+    // 1. 调用后端开始骑行
+    const { data } = await axios.post('/api/ride/start', {
+      vehicleId
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    // 2. 关键：保存 ride.id 到 localStorage
+    if (data.ride?.id) {
+      localStorage.setItem('current_ride', JSON.stringify({
+        id: data.ride.id,
+        start_time: data.ride.start_time
+      }))
+    } else {
+      throw new Error('后端未返回 ride.id')
+    }
+
+    // 3. 成功提示 + 跳转
+    ElMessage.success('解锁成功！开始骑行')
+    unlockDialog.value.visible = false
+    router.push({
+      name: 'Riding',
+      params: { vehicleId }
+    })
+
+  } catch (err) {
+    console.error('解锁失败:', err)
+    ElMessage.error(err.response?.data?.message || '解锁失败，请重试')
+  } finally {
+    unlocking.value = false
   }
 }
+
+const cancelUnlock = () => {
+  unlockDialog.value.visible = false
+}
+
 const statusMap = {
   IDLE: '空闲',
   IN_USE: '使用中',
