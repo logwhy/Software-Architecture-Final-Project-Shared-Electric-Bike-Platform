@@ -23,6 +23,7 @@ const register = async (req, res) => {
     }
 };
 
+
 const login = async (req, res) => {
     const { phone, password } = req.body;
 

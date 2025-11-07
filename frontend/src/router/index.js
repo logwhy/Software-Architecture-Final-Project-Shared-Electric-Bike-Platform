@@ -15,6 +15,12 @@ const routes = [
         name: 'Riding',
         component: () => import('../views/RidingView.vue'),
         meta: { requiresAuth: true }
+    },
+    {
+        path: '/admin',
+        name: 'Admin',
+        component: () => import('../views/AdminView.vue'),
+        meta: { requiresAuth: true, roles: ['OPERATOR', 'MAINTAINER', 'PARK_ADMIN'] }
     }
 ]
 
@@ -26,37 +32,51 @@ const router = createRouter({
 // 看门狗守卫
 router.beforeEach(async (to, from, next) => {
     const token = localStorage.getItem('token')
+    const userStr = localStorage.getItem('user')
+    const user = userStr ? JSON.parse(userStr) : {}
 
     if (to.meta.requiresAuth) {
-        if (!token) {
-            next('/login')
+        if (!token || !user?.id) {
+            // 记住目标路径
+            const redirect = to.fullPath || (user.role === 'TENANT' ? '/home' : '/admin')
+            next({
+                path: '/login',
+                query: { redirect }  // 带上目标路径
+            })
             return
         }
 
-        // 验证 token
-        try {
-            await axios.get('/api/auth/validate', {
-                headers: { Authorization: `Bearer ${token}` }
-            })
-            next()  // 放行
-        } catch (err) {
-            localStorage.removeItem('token')
-            localStorage.removeItem('user')
-            ElMessage.error('登录已过期，请重新登录')
-            next('/login')
+        // 角色权限校验
+        if (to.meta.roles && !to.meta.roles.includes(user.role)) {
+            ElMessage.error('无权限访问')
+            next(user.role === 'TENANT' ? '/home' : '/admin')
+            return
         }
-    }
-    else if ((to.path === '/login' || to.path === '/register') && token) {
+
         try {
             await axios.get('/api/auth/validate', {
                 headers: { Authorization: `Bearer ${token}` }
             })
-            next('/home')
+            next()
         } catch {
-            next()  // token 无效 → 留在登录页
+            localStorage.clear()
+            ElMessage.error('登录已过期')
+            const redirect = user.role === 'TENANT' ? '/home' : '/admin'
+            next({
+                path: '/login',
+                query: { redirect }
+            })
         }
-    }
-    else {
+    } else if ((to.path === '/login' || to.path === '/register') && token) {
+        try {
+            await axios.get('/api/auth/validate', {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            next(user.role === 'TENANT' ? '/home' : '/admin')
+        } catch {
+            next()
+        }
+    } else {
         next()
     }
 })

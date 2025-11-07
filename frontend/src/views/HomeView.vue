@@ -11,10 +11,14 @@
             <div class="role">{{ roleMap[user.role] }}</div>
           </div>
         </div>
-        <el-button type="primary" plain @click="logout" class="logout-btn">
-          <el-icon><SwitchButton /></el-icon>
-          <span>退出登录</span>
-        </el-button>
+
+        <div class="header-actions">
+          <el-button v-if="user.role !== 'TENANT'" type="primary" plain @click="switchToAdmin">切换到管理后台</el-button>
+          <el-button type="danger" plain @click="logout" class="logout-btn">
+            <el-icon><SwitchButton /></el-icon>
+            <span>退出登录</span>
+          </el-button>
+        </div>
       </div>
     </el-affix>
 
@@ -112,6 +116,10 @@ onMounted(() => {
   })
 })
 
+const switchToAdmin = () => {
+  router.push('/admin')
+}
+
 const handleTabChange = (key) => {
   if (key === 'riding' && !hasOngoingRide.value) {
     ElMessage.warning('您当前没有正在进行的骑行')
@@ -142,10 +150,17 @@ const logout = () => {
   padding: 0 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between; /* 更改为space-between */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border-bottom: 1px solid #e4e7ed;
 }
+
+/* 新增样式 */
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
 
 .user-info {
   display: flex;
