@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const authRouter = require('./routes/auth');
 const vehicleRouter = require('./routes/vehicles');
 const rideRouter = require('./routes/ride');
+const complaintRouter = require('./routes/complaint');
 
 dotenv.config();
 
@@ -17,6 +18,8 @@ app.use(express.json());
 app.use('/api/auth', authRouter);
 app.use('/api/vehicles', vehicleRouter);
 app.use('/api/ride', rideRouter);
+app.use('/api/complaints', complaintRouter);
+app.use('/uploads', express.static(require('path').join(__dirname, 'public/uploads')));
 
 // 404
 app.use((req, res) => {

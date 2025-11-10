@@ -45,6 +45,10 @@
               骑行中 {{ currentRide ? `(${currentRide.vehicle_code})` : '(无)' }}
             </span>
           </el-menu-item>
+          <el-menu-item index="complaint" class="menu-item">
+            <el-icon class="menu-icon"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg></el-icon>
+            <span class="menu-text">我要投诉</span>
+          </el-menu-item>
         </el-menu>
       </div>
 
@@ -123,6 +127,10 @@ const switchToAdmin = () => {
 const handleTabChange = (key) => {
   if (key === 'riding' && !hasOngoingRide.value) {
     ElMessage.warning('您当前没有正在进行的骑行')
+    return
+  }
+  if (key === 'complaint') {
+    router.push('/complaint')
     return
   }
   activeTab.value = key

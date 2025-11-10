@@ -96,7 +96,6 @@
                     </div>
                   </div>
                 </el-card>
-
                 <el-card shadow="hover" class="stat-card">
                   <div class="stat-item">
                     <el-icon class="stat-icon success"><CircleCheck /></el-icon>
@@ -106,17 +105,15 @@
                     </div>
                   </div>
                 </el-card>
-
                 <el-card shadow="hover" class="stat-card">
                   <div class="stat-item">
                     <el-icon class="stat-icon warning"><Warning /></el-icon>
                     <div class="stat-info">
-                      <div class="stat-value">23</div>
+                      <div class="stat-value">{{ complaints.filter(c=>c.status==='未处理').length }}</div>
                       <div class="stat-label">待处理投诉</div>
                     </div>
                   </div>
                 </el-card>
-
                 <el-card shadow="hover" class="stat-card">
                   <div class="stat-item">
                     <el-icon class="stat-icon info"><User /></el-icon>
@@ -127,6 +124,31 @@
                   </div>
                 </el-card>
               </div>
+            </div>
+
+            <!-- 投诉处理区域 -->
+            <div v-else-if="activeMenu === 'complaints'" class="complaints-content">
+              <el-table :data="complaints" style="width: 100%" v-loading="loadingComplaints">
+                <el-table-column prop="type" label="类型" width="120" />
+                <el-table-column prop="description" label="说明" />
+                <el-table-column label="照片" width="100">
+                  <template #default="scope">
+                    <img v-if="scope.row.photoUrl" :src="scope.row.photoUrl" alt="投诉照片" style="width:60px;height:60px;object-fit:cover;border-radius:6px;" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="位置" width="160">
+                  <template #default="scope">
+                    <span>经度: {{ scope.row.longitude }}<br/>纬度: {{ scope.row.latitude }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="status" label="状态" width="100" />
+                <el-table-column label="操作" width="120">
+                  <template #default="scope">
+                    <el-button v-if="scope.row.status==='未处理'" type="primary" size="small" @click="handleComplaint(scope.row.id)">处理</el-button>
+                    <span v-else>已处理</span>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
 
             <!-- 其他功能区域 -->
@@ -146,6 +168,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import axios from 'axios'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -165,6 +188,8 @@ import {
 const router = useRouter()
 const user = ref({})
 const activeMenu = ref('dashboard')
+const complaints = ref([])
+const loadingComplaints = ref(false)
 
 const roleMap = {
   OPERATOR: '运营',
@@ -181,7 +206,30 @@ const roleTag = {
 onMounted(() => {
   const u = localStorage.getItem('user')
   if (u) user.value = JSON.parse(u)
+  fetchComplaints()
 })
+
+const fetchComplaints = async () => {
+  loadingComplaints.value = true
+  try {
+    const res = await axios.get('/api/complaints')
+    complaints.value = res.data
+  } catch (e) {
+    ElMessage.error('投诉列表获取失败')
+  }
+  loadingComplaints.value = false
+}
+
+const handleComplaint = async (id) => {
+  try {
+    
+    await axios.post(`/api/complaints/${id}/handle`)
+    ElMessage.success('投诉已处理')
+    fetchComplaints()
+  } catch (e) {
+    ElMessage.error('处理失败')
+  }
+}
 
 const handleMenu = (key) => {
   activeMenu.value = key

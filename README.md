@@ -36,6 +36,7 @@
 5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
 6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
 
+```
 2025.11.6
 第一次提交，初始化前后端并添加用户登录注册模块
 这里使用了postgreSQL，需要登录或者替换的话看后端.env文件
@@ -81,3 +82,19 @@ CREATE TRIGGER update_parks_updated_at
     BEFORE UPDATE ON parks
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+
+-- 投诉表，使用 PostGIS 地理位置
+CREATE TABLE IF NOT EXISTS complaints (
+    id SERIAL PRIMARY KEY,
+    type VARCHAR(32) NOT NULL,
+    description TEXT NOT NULL,
+    photo_url VARCHAR(255),
+    location geometry(Point, 4326) NOT NULL,
+    status VARCHAR(16) DEFAULT '未处理',
+    created_at TIMESTAMP DEFAULT NOW(),
+    handled_at TIMESTAMP,
+    handler VARCHAR(64)
+);
+
+```

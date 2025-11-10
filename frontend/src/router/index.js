@@ -9,6 +9,7 @@ const routes = [
     { path: '/login', component: LoginView, meta: { requiresAuth: false } },
     { path: '/register', component: RegisterView, meta: { requiresAuth: false } },
     { path: '/home', component: HomeView, meta: { requiresAuth: true } },
+    { path: '/complaint', component: () => import('../views/ComplaintView.vue'), meta: { requiresAuth: true } },
     { path: '/map', component: () => import('../views/MapView.vue'), meta: { requiresAuth: true } },
     {
         path: '/riding/:vehicleId',
