@@ -2,49 +2,26 @@
   <div class="map-container">
     <div id="amap-container"></div>
 
-    <!-- 右侧车辆列表 -->
-    <div class="vehicle-list">
-      <div class="list-header">
-        <h3>附近车辆 ({{ vehicles.length }})</h3>
-        <el-tag v-if="currentRide" type="warning" size="small">
-          骑行中: {{ currentRide.vehicle_code }}
-        </el-tag>
-      </div>
+    <!-- 园区选择器 - 独立组件 -->
+    <ParkSelector
+        @park-change="handleParkChange"
+        @parks-loaded="handleParksLoaded"
+    />
 
-      <!-- 车辆卡片 -->
-      <el-card
-          v-for="v in paginatedVehicles"
-          :key="v.id"
-          class="vehicle-card"
-          :class="{ active: activeVehicleId === v.id }"
-          @click="focusVehicle(v)"
-          style="cursor: pointer; transition: all 0.3s;"
-      >
-        <div class="flex justify-between items-center">
-          <div>
-            <div class="font-bold text-lg">{{ v.code }}</div>
-            <div class="text-sm text-gray-500">
-              电量: {{ v.battery }}% · {{ statusMap[v.status] }}
-            </div>
-          </div>
-          <el-tag :type="statusTag[v.status]" size="small">
-            {{ statusMap[v.status] }}
-          </el-tag>
-        </div>
-      </el-card>
+    <!-- 园区边界 - 纯展示组件 -->
+    <ParkBoundary
+        v-if="map"
+        :parks="allParks"
+        :map="map"
+    />
 
-      <!-- 分页 -->
-      <el-pagination
-          v-if="vehicles.length > pageSize"
-          v-model:current-page="page"
-          :page-size="pageSize"
-          :total="vehicles.length"
-          layout="prev, pager, next"
-          small
-          background
-          class="pagination"
-      />
-    </div>
+    <!-- 车辆列表 -->
+    <VehicleList
+        :vehicles="vehicles"
+        :current-ride="currentRide"
+        @vehicle-focus="focusVehicle"
+        class="vehicle-list-container"
+    />
 
     <!-- 扫码解锁弹窗 -->
     <el-dialog
@@ -69,41 +46,27 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import QRCode from 'qrcode.vue'
 import { ElMessage } from 'element-plus'
+import ParkSelector from './components/ParkSelector.vue'
+import VehicleList from './components/VehicleList.vue'
+import ParkBoundary from './components/ParkBoundary.vue'
 
 const router = useRouter()
 const vehicles = ref([])
-const page = ref(1)
-const pageSize = ref(6)
-const paginatedVehicles = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  return vehicles.value.slice(start, start + pageSize.value)
-})
 const currentRide = ref(null)
 const unlockDialog = ref({ visible: false, vehicle: null })
 const unlocking = ref(false)
-const activeVehicleId = ref(null)
+const allParks = ref([]) // 所有园区数据，只用于边界显示
+const currentPark = ref(null) // 当前选中园区
+const mapInitialized = ref(false)
 
+let parkPolygons = [] // 单独管理园区边界
 let map = null
 let markers = []
-
-// 状态映射
-const statusMap = {
-  IDLE: '空闲',
-  IN_USE: '使用中',
-  LOCKED: '锁定',
-  MAINTENANCE: '维护中'
-}
-const statusTag = {
-  IDLE: 'success',
-  IN_USE: 'warning',
-  LOCKED: 'danger',
-  MAINTENANCE: 'info'
-}
 
 // 加载高德地图
 const loadAMap = () => new Promise((resolve) => {
@@ -123,54 +86,90 @@ const initMap = async () => {
     pitch: 45,
     viewMode: '3D'
   })
-  map.addControl(new AMap.ControlBar())
-  fetchVehicles()
-  setInterval(fetchVehicles, 5000)
+
+  // 添加指南针控件到左下角
+  map.addControl(new AMap.ControlBar({
+    position: {
+      bottom: '30px',
+      left: '10px',
+      right: 'auto',
+      top: 'auto'
+    }
+  }))
+
+  mapInitialized.value = true
+}
+
+// 处理园区加载完成
+const handleParksLoaded = (parks) => {
+  allParks.value = parks
+  updateParkBoundaries(parks)
+
+  // 只有在地图初始化完成后才自动选择第一个园区
+  if (mapInitialized.value && parks.length > 0 && !currentPark.value) {
+    handleParkChange({
+      parkId: parks[0].id,
+      parkData: parks[0]
+    })
+  }
+}
+
+// 添加专门的方法管理园区边界
+const updateParkBoundaries = (parks) => {
+  // 清除旧边界
+  if (parkPolygons.length) {
+    map.remove(parkPolygons)
+    parkPolygons = []
+  }
+
+  parks.forEach(park => {
+    if (!park.boundary_coordinates || !Array.isArray(park.boundary_coordinates)) return
+
+    const polygon = new window.AMap.Polygon({
+      path: park.boundary_coordinates,
+      strokeColor: '#1890ff',
+      strokeWeight: 2,
+      strokeOpacity: 0.8,
+      fillColor: '#1890ff',
+      fillOpacity: 0.2,
+      zIndex: 50
+    })
+    polygon.isParkBoundary = true // 标记为园区边界
+
+    parkPolygons.push(polygon)
+  })
+
+  if (parkPolygons.length) {
+    map.add(parkPolygons)
+  }
+}
+
+// 处理园区切换
+const handleParkChange = ({ parkId, parkData }) => {
+  currentPark.value = parkData
+  fetchVehicles(parkId)
+
+  // 聚焦到选中的园区 - 添加更严格的地图实例检查
+  if (parkData && parkData.center_lng && parkData.center_lat && map && typeof map.setZoomAndCenter === 'function') {
+    try {
+      map.setZoomAndCenter(16, [parkData.center_lng, parkData.center_lat])
+    } catch (error) {
+      console.error('地图聚焦失败:', error)
+    }
+  }
 }
 
 // 获取车辆
-const fetchVehicles = async () => {
+const fetchVehicles = async (parkId) => {
+  if (!parkId) return
+
   try {
     const token = localStorage.getItem('token')
-    const res = await axios.get('/api/vehicles', {
+    const res = await axios.get(`/api/vehicles?parkId=${parkId}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     vehicles.value = res.data.vehicles || []
-
-    // 清除旧标记
-    if (markers.length) map.remove(markers)
-    markers = []
-
-    vehicles.value.forEach(v => {
-      const coords = v.location?.coordinates || v.location
-      if (!coords || coords.length < 2) return
-      const [lng, lat] = coords.map(Number)
-      if (isNaN(lng) || isNaN(lat)) return
-
-      const marker = new window.AMap.Marker({
-        position: [lng, lat],
-        title: `${v.code} (${v.battery}%)`,
-        icon: v.status === 'IN_USE'
-            ? 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png'
-            : 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png'
-      })
-
-      marker.on('click', () => {
-        if (localStorage.getItem('current_ride')) {
-          ElMessage.warning('您已有一辆车正在使用中')
-          return
-        }
-        unlockDialog.value = { visible: true, vehicle: v }
-        nextTick(() => renderQRCode(v))
-      })
-
-      markers.push(marker)
-    })
-
-    if (markers.length) {
-      map.add(markers)
-      map.setFitView(markers)
-    }
+    updateMapMarkers()
   } catch (err) {
     if (err.response?.status === 401) {
       localStorage.clear()
@@ -179,10 +178,46 @@ const fetchVehicles = async () => {
   }
 }
 
+// 更新地图标记
+const updateMapMarkers = () => {
+  // 清除旧标记
+  if (markers.length) map.remove(markers)
+  markers = []
+
+  vehicles.value.forEach(v => {
+    const coords = v.location?.coordinates || []
+    if (!coords || coords.length < 2) return
+    const [lng, lat] = coords.map(Number)
+    if (isNaN(lng) || isNaN(lat)) return
+
+    const marker = new window.AMap.Marker({
+      position: [lng, lat],
+      title: `${v.code} (${v.battery}%)`,
+      icon: v.status === 'IN_USE'
+          ? 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png'
+          : 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png'
+    })
+
+    marker.on('click', () => {
+      if (localStorage.getItem('current_ride')) {
+        ElMessage.warning('您已有一辆车正在使用中')
+        return
+      }
+      unlockDialog.value = { visible: true, vehicle: v }
+      nextTick(() => renderQRCode(v))
+    })
+
+    markers.push(marker)
+  })
+
+  if (markers.length) {
+    map.add(markers)
+  }
+}
+
 // 聚焦车辆
 const focusVehicle = (vehicle) => {
-  activeVehicleId.value = vehicle.id
-  const coords = vehicle.location?.coordinates || vehicle.location
+  const coords = vehicle.location?.coordinates || []
   if (coords && coords.length >= 2) {
     const [lng, lat] = coords.map(Number)
     map.setZoomAndCenter(18, [lng, lat])
@@ -230,7 +265,6 @@ const simulateScan = async () => {
     ElMessage.success(`解锁成功！开始骑行 ${unlockDialog.value.vehicle.code}`)
     unlockDialog.value.visible = false
 
-    // 通知 HomeView
     window.dispatchEvent(new Event('ride-started'))
   } catch (err) {
     const msg = err.response?.data?.message || '解锁失败'
@@ -244,8 +278,8 @@ const cancelUnlock = () => {
   unlockDialog.value.visible = false
 }
 
-onMounted(() => {
-  initMap()
+onMounted(async () => {
+  await initMap()
   currentRide.value = JSON.parse(localStorage.getItem('current_ride') || 'null')
 })
 
@@ -259,47 +293,15 @@ onUnmounted(() => {
   position: relative;
   height: 100%;
 }
+
 #amap-container {
   width: 100%;
   height: 100%;
 }
-.vehicle-list {
+
+.vehicle-list-container {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 320px;
-  max-height: 85vh;
-  overflow-y: auto;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(10px);
-  border: 1px solid #e4e7ed;
-}
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 16px;
-  font-weight: 600;
-}
-.vehicle-card {
-  margin-bottom: 10px;
-  border: 1px solid #e4e7ed;
-}
-.vehicle-card:hover {
-  border-color: #409eff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
-}
-.vehicle-card.active {
-  border-color: #409eff;
-  background: #ecf5ff;
-}
-.pagination {
-  margin-top: 12px;
-  text-align: center;
 }
 </style>

@@ -3,11 +3,23 @@ const { getAllVehicles } = require('../models/vehicle');
 
 const getVehicles = async (req, res) => {
     try {
-        const vehicles = await getAllVehicles();
-        res.json({ vehicles });
+        const { parkId } = req.query;
+
+        // 验证 parkId 是否为数字
+        const validatedParkId = parkId && !isNaN(parkId) ? parseInt(parkId) : null;
+
+        const vehicles = await getAllVehicles(validatedParkId);
+
+        res.json({
+            success: true,
+            vehicles
+        });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: '获取车辆失败' });
+        console.error('获取车辆失败:', err);
+        res.status(500).json({
+            success: false,
+            message: '获取车辆失败'
+        });
     }
 };
 
