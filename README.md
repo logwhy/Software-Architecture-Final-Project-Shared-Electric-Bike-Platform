@@ -96,4 +96,27 @@ CREATE TABLE IF NOT EXISTS complaints (
     handler VARCHAR(64)
 );
 
+CREATE TABLE user_parks (
+  user_id INT NOT NULL,
+  park_id INT NOT NULL,
+  PRIMARY KEY (user_id, park_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (park_id) REFERENCES parks(id) ON DELETE CASCADE
+);
+
+-- 为 parks 表添加经纬度字段
+ALTER TABLE parks ADD COLUMN center_lng DECIMAL(10, 6);
+ALTER TABLE parks ADD COLUMN center_lat DECIMAL(10, 6);
+ALTER TABLE parks ADD COLUMN boundary_coordinates JSON;
+
+-- 更新现有园区的经纬度（示例数据，请根据实际情况修改）
+UPDATE parks SET 
+  center_lng = 116.31,
+  center_lat = 39.91,
+  boundary_coordinates = '[[116.305, 39.905], [116.315, 39.905], [116.315, 39.915], [116.305, 39.915], [116.305, 39.905]]'
+WHERE id = 1;
+
+-- 插入新的园区
+INSERT INTO parks (name, location, center_lng, center_lat, boundary_coordinates) VALUES 
+('上海科技园区', '上海市浦东新区', 121.47, 31.23, '[[121.46, 31.22], [121.48, 31.22], [121.48, 31.24], [121.46, 31.24], [121.46, 31.22]]');
 ```

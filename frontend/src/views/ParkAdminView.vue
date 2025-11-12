@@ -35,9 +35,69 @@
           </template>
 
           <div class="content-area">
-            <div class="placeholder-content">
-              <el-empty description="用户管理功能（界面占位）"></el-empty>
-            </div>
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-card shadow="hover">
+                  <template #header>
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                      <span>租客列表</span>
+                    </div>
+                  </template>
+                  <el-table :data="tenants" style="width:100%" v-loading="loading">
+                    <el-table-column prop="id" label="ID" width="80" />
+                    <el-table-column prop="name" label="姓名" />
+                    <el-table-column prop="phone" label="手机号" width="140" />
+                    <el-table-column prop="created_at" label="注册时间" width="180" />
+                  </el-table>
+                </el-card>
+              </el-col>
+
+              <el-col :span="12">
+                <el-card shadow="hover">
+                  <template #header>
+                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                      <span>活跃用户（近{{ days }}天）</span>
+                      <el-button size="mini" @click="refresh">刷新</el-button>
+                    </div>
+                  </template>
+                  <el-table :data="activeUsers" style="width:100%" v-loading="loading">
+                    <el-table-column prop="name" label="姓名" />
+                    <el-table-column prop="phone" label="手机号" width="140" />
+                    <el-table-column prop="rides" label="骑行次数" width="120" />
+                  </el-table>
+                </el-card>
+              </el-col>
+            </el-row>
+
+            <el-row :gutter="16" style="margin-top:16px;">
+              <el-col :span="12">
+                <el-card shadow="hover">
+                  <template #header>
+                    <span>热门线路</span>
+                  </template>
+                  <el-table :data="popularRoutes" style="width:100%" v-loading="loading">
+                    <el-table-column label="起点" width="160">
+                      <template #default="{ row }">{{ formatRoute(row) }}</template>
+                    </el-table-column>
+                    <el-table-column prop="cnt" label="次数" width="100" />
+                  </el-table>
+                </el-card>
+              </el-col>
+
+              <el-col :span="12">
+                <el-card shadow="hover">
+                  <template #header>
+                    <span>高峰时段（近{{ days }}天）</span>
+                  </template>
+                  <el-table :data="peakHours" style="width:100%" v-loading="loading">
+                    <el-table-column prop="hour" label="小时" width="100">
+                      <template #default="{ row }">{{ row.hour }}:00</template>
+                    </el-table-column>
+                    <el-table-column prop="cnt" label="次数" width="100" />
+                  </el-table>
+                </el-card>
+              </el-col>
+            </el-row>
           </div>
         </el-card>
       </div>
@@ -48,6 +108,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { Setting, User, UserFilled, SwitchButton } from '@element-plus/icons-vue'
 
@@ -56,6 +117,40 @@ const user = ref({})
 
 const roleMap = { OPERATOR: '运营', MAINTAINER: '维护员', PARK_ADMIN: '管理员' }
 const roleTag = { OPERATOR: 'warning', MAINTAINER: 'info', PARK_ADMIN: 'danger' }
+
+const tenants = ref([])
+const activeUsers = ref([])
+const popularRoutes = ref([])
+const peakHours = ref([])
+const loading = ref(false)
+const days = ref(30)
+
+const loadStats = async () => {
+  loading.value = true
+  try {
+    const [tRes, aRes, pRes, hRes] = await Promise.all([
+      axios.get('/api/admin/tenants'),
+      axios.get(`/api/admin/active-users?days=${days.value}`),
+      axios.get('/api/admin/popular-routes'),
+      axios.get(`/api/admin/peak-hours?days=${days.value}`)
+    ])
+    tenants.value = tRes.data || []
+    activeUsers.value = aRes.data || []
+    popularRoutes.value = pRes.data || []
+    peakHours.value = hRes.data || []
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('加载统计数据失败')
+  }
+  loading.value = false
+}
+
+const refresh = () => loadStats()
+
+const formatRoute = (row) => {
+  if (!row) return ''
+  return `${row.start_lon},${row.start_lat} → ${row.end_lon},${row.end_lat}`
+}
 
 onMounted(() => {
   const u = localStorage.getItem('user')
@@ -66,6 +161,7 @@ onMounted(() => {
     router.replace(redirect)
     return
   }
+  loadStats()
 })
 
 const logout = () => {

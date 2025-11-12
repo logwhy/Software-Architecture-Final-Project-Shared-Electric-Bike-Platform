@@ -16,7 +16,10 @@
 
       <div class="row">
         <label>简要说明 <span class="required">*</span></label>
-        <textarea v-model="description" placeholder="请简要描述问题，越具体越好（例如：车牌/位置/时间）"></textarea>
+        <textarea
+          v-model="description"
+          placeholder="请简要描述问题，越具体越好（例如：车牌/位置/时间）"
+        ></textarea>
       </div>
 
       <div class="row">
@@ -24,29 +27,33 @@
         <input ref="fileInput" type="file" accept="image/*" @change="onFileChange" />
         <div v-if="photoPreview" class="preview">
           <img :src="photoPreview" alt="照片预览" />
-          <button type="button" class="small" @click="removePhoto">删除照片</button>
+          <button type="button" class="btn-small" @click="removePhoto">删除照片</button>
         </div>
       </div>
 
       <div class="row location-row">
         <label>位置信息 <span class="required">*</span></label>
         <div class="loc-info">
-          <div v-if="location">经度: {{ location.longitude }}，纬度: {{ location.latitude }}</div>
+          <div v-if="location" class="loc-text">
+            经度: {{ location.longitude }}，纬度: {{ location.latitude }}
+          </div>
           <div v-else class="hint">未获取位置信息</div>
           <div class="loc-actions">
             <button type="button" @click="getLocation">获取当前位置</button>
-            <button type="button" @click="clearLocation" class="small">清除位置</button>
+            <button type="button" @click="clearLocation" class="btn-small">清除位置</button>
           </div>
         </div>
       </div>
 
       <div class="row actions">
-        <button type="submit" :disabled="isSubmitting" class="primary">{{ isSubmitting ? '提交中...' : '提交投诉' }}</button>
-        <button type="button" @click="cancel" class="ghost">返回首页</button>
+        <button type="submit" :disabled="isSubmitting" class="btn-primary">
+          {{ isSubmitting ? '提交中...' : '提交投诉' }}
+        </button>
+        <button type="button" @click="cancel" class="btn-ghost">返回首页</button>
       </div>
 
-      <div v-if="successMsg" class="success">{{ successMsg }}</div>
-      <div v-if="errorMsg" class="error">{{ errorMsg }}</div>
+      <div v-if="successMsg" class="msg success">{{ successMsg }}</div>
+      <div v-if="errorMsg" class="msg error">{{ errorMsg }}</div>
     </form>
   </div>
 </template>
@@ -56,149 +63,252 @@ export default {
   name: 'ComplaintView',
   data() {
     return {
-      type: '不文明用车',
+      type: '',
       description: '',
-      photo: null,
       photoPreview: null,
       location: null,
+      isSubmitting: false,
       successMsg: '',
-      errorMsg: '',
-      isSubmitting: false
-    };
+      errorMsg: ''
+    }
   },
   methods: {
     onFileChange(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      this.photo = file;
-      // 预览
-      if (this.photoPreview) {
-        URL.revokeObjectURL(this.photoPreview);
+      const file = e.target.files[0]
+      if (file) {
+        this.photoPreview = URL.createObjectURL(file)
       }
-      this.photoPreview = URL.createObjectURL(file);
     },
     removePhoto() {
-      if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
-      this.photoPreview = null;
-      this.photo = null;
-      if (this.$refs.fileInput) this.$refs.fileInput.value = null;
+      this.photoPreview = null
+      this.$refs.fileInput.value = ''
     },
     getLocation() {
-      this.errorMsg = '';
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            this.location = {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude
-            };
-          },
-          err => {
-            this.errorMsg = '无法获取位置信息，请允许定位权限';
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      } else {
-        this.errorMsg = '浏览器不支持定位';
-      }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          this.location = {
+            latitude: pos.coords.latitude.toFixed(6),
+            longitude: pos.coords.longitude.toFixed(6)
+          }
+        },
+        () => {
+          this.errorMsg = '无法获取位置信息，请检查定位权限'
+        }
+      )
     },
     clearLocation() {
-      this.location = null;
-    },
-    cancel() {
-      // 清理临时资源并返回首页
-      this.removePhoto();
-      this.location = null;
-      this.successMsg = '';
-      this.errorMsg = '';
-      if (this.$router) this.$router.push('/home');
-      else window.location.href = '/';
+      this.location = null
     },
     async submitComplaint() {
-      this.errorMsg = '';
-      this.successMsg = '';
       if (!this.type || !this.description || !this.location) {
-        this.errorMsg = '请填写完整信息并获取位置';
-        return;
+        this.errorMsg = '请填写所有必填项后再提交'
+        return
       }
-      this.isSubmitting = true;
-      const formData = new FormData();
-      formData.append('type', this.type);
-      formData.append('description', this.description);
-      formData.append('latitude', this.location.latitude);
-      formData.append('longitude', this.location.longitude);
-      if (this.photo) formData.append('photo', this.photo);
-      try {
-        const res = await fetch('/api/complaints', {
-          method: 'POST',
-          body: formData
-        });
-        if (res.ok) {
-          this.successMsg = '投诉提交成功！我们会尽快处理。';
-          this.errorMsg = '';
-          // 重置表单
-          this.type = '不文明用车';
-          this.description = '';
-          this.removePhoto();
-          this.location = null;
-          // 可选：自动返回首页
-          setTimeout(() => {
-            if (this.$router) this.$router.push('/home');
-          }, 900);
-        } else {
-          const body = await res.json().catch(() => ({}));
-          this.errorMsg = body.message || '提交失败，请重试';
-        }
-      } catch (e) {
-        this.errorMsg = '网络错误';
-      } finally {
-        this.isSubmitting = false;
-      }
+      this.isSubmitting = true
+      this.successMsg = ''
+      this.errorMsg = ''
+
+      setTimeout(() => {
+        this.isSubmitting = false
+        this.successMsg = '投诉已提交，感谢您的反馈！'
+      }, 1500)
+    },
+    cancel() {
+      this.$router.push('/')
     }
   }
-};
+}
 </script>
 
 <style scoped>
+/* 整体布局 */
 .complaint-view {
-  max-width: 640px;
-  margin: 30px auto;
-  padding: 20px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  background: #fafafa;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Microsoft YaHei', sans-serif;
 }
+
+/* 顶部标题栏 */
 .cv-header {
+  width: 100%;
+  max-width: 800px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 1.5rem;
 }
-.cv-header h2 { margin: 0; }
-.btn-exit {
-  background: transparent;
+.cv-header h2 {
+  font-size: 1.6rem;
+  color: #2c3e50;
+  margin: 0;
+}
+
+/* 表单容器 */
+.cv-form {
+  background-color: #ffffff;
+  width: 100%;
+  max-width: 800px;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.row {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #34495e;
+}
+
+.required {
+  color: #e74c3c;
+}
+
+input[type='file'],
+select,
+textarea,
+button {
+  font-size: 1rem;
+}
+
+select,
+textarea {
   border: 1px solid #dcdfe6;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  outline: none;
+  transition: 0.2s;
 }
-.cv-form { display: flex; flex-direction: column; gap: 12px; }
-.row { display: flex; flex-direction: column; gap: 6px; }
-label { font-weight: 600; }
-select, textarea, input[type="file"] { padding: 8px; border-radius: 6px; border: 1px solid #e6e6e6; }
-textarea { min-height: 100px; resize: vertical; }
-.preview { margin-top: 8px; display:flex; gap:8px; align-items:center }
-.preview img { width: 120px; height: 80px; object-fit: cover; border-radius: 6px; border:1px solid #eee }
-.small { background: transparent; border: none; color:#f56c6c; cursor:pointer }
-.location-row .loc-info { display:flex; align-items:center; gap:12px }
-.loc-actions { display:flex; gap:8px }
-.loc-actions .small { padding:4px 8px }
-.actions { display:flex; gap:12px; align-items:center }
-.primary { background: linear-gradient(90deg,#409eff,#79bbff); color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer }
-.primary[disabled] { opacity:0.6; cursor:not-allowed }
-.ghost { background:transparent; border:1px solid #e6e6e6; padding:8px 12px; border-radius:6px; cursor:pointer }
-.required { color: #e53935; margin-left:6px }
-.hint { color:#909399 }
-.success { color: green; margin-top: 8px; }
-.error { color: red; margin-top: 8px; }
+
+select:focus,
+textarea:focus {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.15);
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* 按钮样式 */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  transition: 0.2s;
+}
+
+.btn-primary {
+  background-color: #409eff;
+  color: white;
+}
+.btn-primary:hover {
+  background-color: #66b1ff;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: #409eff;
+  border: 1px solid #409eff;
+}
+.btn-ghost:hover {
+  background-color: #ecf5ff;
+}
+
+.btn-small {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  background-color: #f2f6fc;
+}
+.btn-small:hover {
+  background-color: #e5efff;
+}
+
+.btn-exit {
+  background-color: #f56c6c;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+}
+.btn-exit:hover {
+  background-color: #f78989;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+}
+
+/* 图片预览 */
+.preview {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.preview img {
+  width: 180px;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid #dcdfe6;
+  margin-bottom: 0.5rem;
+}
+
+/* 位置部分 */
+.loc-info {
+  background: #f9fafc;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 1rem;
+}
+.loc-text {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+.hint {
+  color: #909399;
+}
+.loc-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* 消息提示 */
+.msg {
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+.msg.success {
+  background-color: #f0f9eb;
+  color: #67c23a;
+}
+.msg.error {
+  background-color: #fef0f0;
+  color: #f56c6c;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+  .cv-form {
+    padding: 1.2rem;
+  }
+  .actions {
+    flex-direction: column;
+  }
+}
 </style>

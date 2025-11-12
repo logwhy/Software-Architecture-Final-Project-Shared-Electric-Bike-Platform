@@ -6,6 +6,7 @@ const vehicleRouter = require('./routes/vehicles');
 const rideRouter = require('./routes/ride');
 const complaintRouter = require('./routes/complaint');
 const parkRouter = require('./routes/parks');
+const adminRouter = require('./routes/admin');
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use('/api/vehicles', vehicleRouter);
 app.use('/api/ride', rideRouter);
 app.use('/api/complaints', complaintRouter);
 app.use('/api/parks', parkRouter);
+app.use('/api/admin', adminRouter);
 app.use('/uploads', express.static(require('path').join(__dirname, 'public/uploads')));
 
 // 404
