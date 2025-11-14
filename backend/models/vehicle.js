@@ -61,18 +61,37 @@ const getAllVehiclesForAdmin = async (parkId = null) => {
     }));
 };
 
+// 把经纬度拼成 WKT（给 SQL 用）
+const buildLocationWkt = (longitude, latitude) => {
+    if (
+        longitude === undefined ||
+        longitude === null ||
+        longitude === '' ||
+        latitude === undefined ||
+        latitude === null ||
+        latitude === ''
+    ) {
+        return null;
+    }
+    const lng = parseFloat(longitude);
+    const lat = parseFloat(latitude);
+    if (Number.isNaN(lng) || Number.isNaN(lat)) {
+        return null;
+    }
+    // 简单写成 POINT(lon lat)，SRID 在 SQL 里用 ST_SetSRID 设置
+    return `POINT(${lng} ${lat})`;
+};
+
 // 新车投放
 const createVehicle = async ({ code, parkId, battery, longitude, latitude, parkingFenceId }) => {
     const batteryValue =
-        battery === undefined || battery === null || battery === '' ? null : battery;
-    const lngValue =
-        longitude === undefined || longitude === null || longitude === '' ? null : longitude;
-    const latValue =
-        latitude === undefined || latitude === null || latitude === '' ? null : latitude;
+        battery === undefined || battery === null || battery === '' ? null : parseInt(battery, 10);
     const fenceValue =
         parkingFenceId === undefined || parkingFenceId === null || parkingFenceId === ''
             ? null
-            : parkingFenceId;
+            : parseInt(parkingFenceId, 10);
+
+    const locationWkt = buildLocationWkt(longitude, latitude);
 
     const res = await pool.query(
         `INSERT INTO vehicles (
@@ -91,60 +110,56 @@ const createVehicle = async ({ code, parkId, battery, longitude, latitude, parki
                     'IDLE',
                     COALESCE($3::integer, 100),
                     CASE
-                        WHEN $4 IS NULL OR $5 IS NULL THEN NULL
-                        ELSE ST_SetSRID(
-                                ST_MakePoint($4::double precision, $5::double precision),
-                                4326
-                             )
+                        WHEN $4::varchar IS NULL THEN NULL
+                ELSE ST_SetSRID(ST_GeomFromText($4::varchar), 4326)
                         END,
-                    $6,
+                    $5,
                     NOW(),
                     NOW()
                 )
              RETURNING
-       id,
-       code,
-       status,
-       battery,
-       park_id,
-       parking_fence_id,
-       ST_X(location::geometry) AS longitude,
-       ST_Y(location::geometry) AS latitude`,
-        [code, parkId, batteryValue, lngValue, latValue, fenceValue]
+            id,
+            code,
+            status,
+            battery,
+            park_id,
+            parking_fence_id,
+            ST_X(location::geometry) AS longitude,
+            ST_Y(location::geometry) AS latitude`,
+        [code, parkId, batteryValue, locationWkt, fenceValue]
     );
+    console.log("locationWkt =", locationWkt);
+
+
     return res.rows[0];
 };
+
 
 // 更新车辆信息（不含状态流转）
 const updateVehicle = async (id, { code, parkId, battery, longitude, latitude, parkingFenceId }) => {
     const batteryValue =
-        battery === undefined || battery === null || battery === '' ? null : battery;
-    const lngValue =
-        longitude === undefined || longitude === null || longitude === '' ? null : longitude;
-    const latValue =
-        latitude === undefined || latitude === null || latitude === '' ? null : latitude;
+        battery === undefined || battery === null || battery === '' ? null : parseInt(battery, 10);
     const fenceValue =
         parkingFenceId === undefined || parkingFenceId === null || parkingFenceId === ''
             ? null
-            : parkingFenceId;
+            : parseInt(parkingFenceId, 10);
+
+    const locationWkt = buildLocationWkt(longitude, latitude);
 
     const res = await pool.query(
         `UPDATE vehicles
-         SET
-             code = $2,
-             park_id = $3,
-             battery = COALESCE($4::integer, battery),
-             location = CASE
-                            WHEN $5 IS NULL OR $6 IS NULL THEN location
-                            ELSE ST_SetSRID(
-                                    ST_MakePoint($5::double precision, $6::double precision),
-                                    4326
-                                 )
-                 END,
-             parking_fence_id = $7,
-             updated_at = NOW()
-         WHERE id = $1
-             RETURNING
+     SET
+       code = $2,
+       park_id = $3,
+       battery = COALESCE($4::integer, battery),
+       location = CASE
+         WHEN $5 IS NULL THEN location
+         ELSE ST_SetSRID(ST_GeomFromText($5::text), 4326)
+       END,
+       parking_fence_id = $6,
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING
        id,
        code,
        status,
@@ -153,7 +168,7 @@ const updateVehicle = async (id, { code, parkId, battery, longitude, latitude, p
        parking_fence_id,
        ST_X(location::geometry) AS longitude,
        ST_Y(location::geometry) AS latitude`,
-        [id, code, parkId, batteryValue, lngValue, latValue, fenceValue]
+        [id, code, parkId, batteryValue, locationWkt, fenceValue]
     );
     return res.rows[0];
 };
@@ -162,10 +177,10 @@ const updateVehicle = async (id, { code, parkId, battery, longitude, latitude, p
 const updateVehicleStatus = async (id, status) => {
     const res = await pool.query(
         `UPDATE vehicles
-         SET status = $2,
-             updated_at = NOW()
-         WHERE id = $1
-             RETURNING
+     SET status = $2,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING
        id,
        code,
        status,
@@ -191,7 +206,7 @@ const deleteVehicle = async (id) => {
     if (check.rows[0].status === 'IN_USE') {
         return { ok: false, reason: 'IN_USE' };
     }
-    await pool.query('DELETE FROM vehicles WHERE id = $1', [id]);
+    await pool.query('DELETE FROM vehicles WHERE id = $1');
     return { ok: true };
 };
 
