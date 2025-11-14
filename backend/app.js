@@ -9,6 +9,8 @@ const parkRouter = require('./routes/parks');
 const adminRouter = require('./routes/admin');
 const complaintTaskRouter = require('./routes/complaintTasks');
 const adminParkFenceRouter = require('./routes/adminParkFences');
+const adminVehicleRouter = require('./routes/adminVehicles');
+
 
 
 
@@ -27,6 +29,7 @@ app.use('/api/ride', rideRouter);
 app.use('/api/complaints', complaintRouter);
 app.use('/api/complaint-tasks', complaintTaskRouter);
 app.use('/api/admin/park-fences', adminParkFenceRouter);
+app.use('/api/admin/vehicles', adminVehicleRouter);
 
 app.use('/api/parks', parkRouter);
 app.use('/api/admin', adminRouter);

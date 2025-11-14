@@ -45,6 +45,8 @@ const routes = [
     { path: '/admin/operator', component: () => import('../views/OperatorView.vue'), meta: { requiresAuth: true, roles: ['OPERATOR'] } },
     { path: '/admin/maintainer', component: () => import('../views/MaintainerView.vue'), meta: { requiresAuth: true, roles: ['MAINTAINER'] } },
     { path: '/admin/park_admin', component: () => import('../views/ParkAdminView.vue'), meta: { requiresAuth: true, roles: ['PARK_ADMIN'] } },
+    { path: '/admin/operator/vehicles', component: () => import('../views/VehicleManageView.vue'), meta: { requiresAuth: true, roles: ['OPERATOR'] } },
+
     {
         path: '/admin/parks-manage',
         name: 'ParkManage',

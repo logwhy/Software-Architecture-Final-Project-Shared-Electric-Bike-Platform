@@ -26,6 +26,14 @@
       </el-affix>
 
       <div class="main-content">
+        <!-- 车辆运维管理入口 -->
+        <div style="margin: 12px 0; text-align: right;">
+          <router-link to="/admin/operator/vehicles">
+            <el-button type="primary">
+              车辆运维管理
+            </el-button>
+          </router-link>
+        </div>
         <el-card class="content-card" shadow="hover">
           <template #header>
             <div class="content-header">
