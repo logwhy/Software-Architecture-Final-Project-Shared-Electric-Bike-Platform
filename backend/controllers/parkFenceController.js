@@ -77,10 +77,34 @@ const deleteFence = async (req, res) => {
         res.status(500).json({ message: '删除围栏失败' });
     }
 };
+// GET /api/admin/park-fences/stats?parkId=xxx
+const parkingStats = async (req, res) => {
+    try {
+        const { parkId } = req.query;
+        const pid = Number(parkId);
+        if (!pid) {
+            return res.status(400).json({ message: '缺少 parkId' });
+        }
+        const rows = await parkFenceModel.getParkingStatsByPark(pid);
+        const stats = rows.map(r => ({
+            id: r.id,
+            parkId: r.park_id,
+            name: r.name,
+            maxVehicles: r.max_vehicles,
+            currentCount: Number(r.current_count),
+            overloaded: r.max_vehicles != null && Number(r.current_count) > r.max_vehicles
+        }));
+        res.json(stats);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: '获取停车围栏统计失败' });
+    }
+};
 
 module.exports = {
     listFencesByPark,
     createFence,
     updateFence,
     deleteFence,
+    parkingStats,
 };

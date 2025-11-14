@@ -23,7 +23,7 @@ const listVehicles = async (req, res) => {
 // POST /api/admin/vehicles
 const createVehicleController = async (req, res) => {
     try {
-        const { code, parkId, battery, longitude, latitude } = req.body;
+        const { code, parkId, battery, longitude, latitude, parkingFenceId } = req.body;
 
         if (!code || !parkId) {
             return res.status(400).json({ message: '车辆编码和园区必填' });
@@ -32,9 +32,13 @@ const createVehicleController = async (req, res) => {
         const vehicle = await createVehicle({
             code,
             parkId: parseInt(parkId, 10),
-            battery: battery !== undefined ? parseInt(battery, 10) : null,
-            longitude: longitude !== undefined ? parseFloat(longitude) : null,
-            latitude: latitude !== undefined ? parseFloat(latitude) : null
+            battery: battery !== undefined && battery !== '' ? parseInt(battery, 10) : null,
+            longitude: longitude !== undefined && longitude !== '' ? parseFloat(longitude) : null,
+            latitude: latitude !== undefined && latitude !== '' ? parseFloat(latitude) : null,
+            parkingFenceId:
+                parkingFenceId !== undefined && parkingFenceId !== ''
+                    ? parseInt(parkingFenceId, 10)
+                    : null
         });
 
         res.status(201).json(vehicle);
@@ -48,7 +52,7 @@ const createVehicleController = async (req, res) => {
 const updateVehicleController = async (req, res) => {
     try {
         const { id } = req.params;
-        const { code, parkId, battery, longitude, latitude } = req.body;
+        const { code, parkId, battery, longitude, latitude, parkingFenceId } = req.body;
 
         if (!code || !parkId) {
             return res.status(400).json({ message: '车辆编码和园区必填' });
@@ -57,9 +61,13 @@ const updateVehicleController = async (req, res) => {
         const vehicle = await updateVehicle(parseInt(id, 10), {
             code,
             parkId: parseInt(parkId, 10),
-            battery: battery !== undefined ? parseInt(battery, 10) : null,
-            longitude: longitude !== undefined ? parseFloat(longitude) : null,
-            latitude: latitude !== undefined ? parseFloat(latitude) : null
+            battery: battery !== undefined && battery !== '' ? parseInt(battery, 10) : null,
+            longitude: longitude !== undefined && longitude !== '' ? parseFloat(longitude) : null,
+            latitude: latitude !== undefined && latitude !== '' ? parseFloat(latitude) : null,
+            parkingFenceId:
+                parkingFenceId !== undefined && parkingFenceId !== ''
+                    ? parseInt(parkingFenceId, 10)
+                    : null
         });
 
         if (!vehicle) {

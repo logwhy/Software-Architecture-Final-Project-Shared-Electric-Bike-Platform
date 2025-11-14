@@ -8,5 +8,6 @@ router.get('/', controller.listFencesByPark);
 router.post('/', controller.createFence);
 router.put('/:id', controller.updateFence);
 router.delete('/:id', controller.deleteFence);
+router.get('/stats', controller.parkingStats);
 
 module.exports = router;

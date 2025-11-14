@@ -4,12 +4,17 @@ const pool = require('../config/db');
 // 前台地图使用：获取可用车辆（排除维修中）
 const getAllVehicles = async (parkId = null) => {
     let query = `
-    SELECT
-      id, code, status, battery, park_id,
-      ST_AsGeoJSON(location)::jsonb AS location_geojson
-    FROM vehicles
-    WHERE status != 'MAINTENANCE'
-  `;
+        SELECT
+            id,
+            code,
+            status,
+            battery,
+            park_id,
+            parking_fence_id,
+            ST_AsGeoJSON(location)::jsonb AS location_geojson
+        FROM vehicles
+        WHERE status != 'MAINTENANCE'
+    `;
 
     const params = [];
 
@@ -29,13 +34,18 @@ const getAllVehicles = async (parkId = null) => {
 // 管理后台使用：获取全部车辆（包含维修中）
 const getAllVehiclesForAdmin = async (parkId = null) => {
     let query = `
-    SELECT
-      id, code, status, battery, park_id,
-      ST_X(location::geometry) AS longitude,
-      ST_Y(location::geometry) AS latitude
-    FROM vehicles
-    WHERE 1 = 1
-  `;
+        SELECT
+            id,
+            code,
+            status,
+            battery,
+            park_id,
+            parking_fence_id,
+            ST_X(location::geometry) AS longitude,
+            ST_Y(location::geometry) AS latitude
+        FROM vehicles
+        WHERE 1 = 1
+    `;
     const params = [];
 
     if (parkId) {
@@ -52,54 +62,98 @@ const getAllVehiclesForAdmin = async (parkId = null) => {
 };
 
 // 新车投放
-const createVehicle = async ({ code, parkId, battery, longitude, latitude }) => {
-    const batteryValue = (battery === undefined || battery === null || battery === '') ? null : battery;
-    const lngValue = (longitude === undefined || longitude === null || longitude === '') ? null : longitude;
-    const latValue = (latitude === undefined || latitude === null || latitude === '') ? null : latitude;
+const createVehicle = async ({ code, parkId, battery, longitude, latitude, parkingFenceId }) => {
+    const batteryValue =
+        battery === undefined || battery === null || battery === '' ? null : battery;
+    const lngValue =
+        longitude === undefined || longitude === null || longitude === '' ? null : longitude;
+    const latValue =
+        latitude === undefined || latitude === null || latitude === '' ? null : latitude;
+    const fenceValue =
+        parkingFenceId === undefined || parkingFenceId === null || parkingFenceId === ''
+            ? null
+            : parkingFenceId;
 
     const res = await pool.query(
-        `INSERT INTO vehicles (code, park_id, status, battery, location, created_at, updated_at)
-     VALUES (
-       $1,
-       $2,
-       'IDLE',
-       COALESCE($3, 100),
-       CASE
-         WHEN $4 IS NULL OR $5 IS NULL THEN NULL
-         ELSE ST_SetSRID(ST_MakePoint($4, $5), 4326)
-       END,
-       NOW(),
-       NOW()
-     )
-     RETURNING id, code, status, battery, park_id,
+        `INSERT INTO vehicles (
+            code,
+            park_id,
+            status,
+            battery,
+            location,
+            parking_fence_id,
+            created_at,
+            updated_at
+        )
+         VALUES (
+                    $1,
+                    $2,
+                    'IDLE',
+                    COALESCE($3::integer, 100),
+                    CASE
+                        WHEN $4 IS NULL OR $5 IS NULL THEN NULL
+                        ELSE ST_SetSRID(
+                                ST_MakePoint($4::double precision, $5::double precision),
+                                4326
+                             )
+                        END,
+                    $6,
+                    NOW(),
+                    NOW()
+                )
+             RETURNING
+       id,
+       code,
+       status,
+       battery,
+       park_id,
+       parking_fence_id,
        ST_X(location::geometry) AS longitude,
        ST_Y(location::geometry) AS latitude`,
-        [code, parkId, batteryValue, lngValue, latValue]
+        [code, parkId, batteryValue, lngValue, latValue, fenceValue]
     );
     return res.rows[0];
 };
 
 // 更新车辆信息（不含状态流转）
-const updateVehicle = async (id, { code, parkId, battery, longitude, latitude }) => {
-    const batteryValue = (battery === undefined || battery === null || battery === '') ? null : battery;
-    const lngValue = (longitude === undefined || longitude === null || longitude === '') ? null : longitude;
-    const latValue = (latitude === undefined || latitude === null || latitude === '') ? null : latitude;
+const updateVehicle = async (id, { code, parkId, battery, longitude, latitude, parkingFenceId }) => {
+    const batteryValue =
+        battery === undefined || battery === null || battery === '' ? null : battery;
+    const lngValue =
+        longitude === undefined || longitude === null || longitude === '' ? null : longitude;
+    const latValue =
+        latitude === undefined || latitude === null || latitude === '' ? null : latitude;
+    const fenceValue =
+        parkingFenceId === undefined || parkingFenceId === null || parkingFenceId === ''
+            ? null
+            : parkingFenceId;
 
     const res = await pool.query(
         `UPDATE vehicles
-     SET code = $2,
-         park_id = $3,
-         battery = COALESCE($4, battery),
-         location = CASE
-           WHEN $5 IS NULL OR $6 IS NULL THEN location
-           ELSE ST_SetSRID(ST_MakePoint($5, $6), 4326)
-         END,
-         updated_at = NOW()
-     WHERE id = $1
-     RETURNING id, code, status, battery, park_id,
+         SET
+             code = $2,
+             park_id = $3,
+             battery = COALESCE($4::integer, battery),
+             location = CASE
+                            WHEN $5 IS NULL OR $6 IS NULL THEN location
+                            ELSE ST_SetSRID(
+                                    ST_MakePoint($5::double precision, $6::double precision),
+                                    4326
+                                 )
+                 END,
+             parking_fence_id = $7,
+             updated_at = NOW()
+         WHERE id = $1
+             RETURNING
+       id,
+       code,
+       status,
+       battery,
+       park_id,
+       parking_fence_id,
        ST_X(location::geometry) AS longitude,
        ST_Y(location::geometry) AS latitude`,
-        [id, code, parkId, batteryValue, lngValue, latValue]
+        [id, code, parkId, batteryValue, lngValue, latValue, fenceValue]
     );
     return res.rows[0];
 };
@@ -108,10 +162,16 @@ const updateVehicle = async (id, { code, parkId, battery, longitude, latitude })
 const updateVehicleStatus = async (id, status) => {
     const res = await pool.query(
         `UPDATE vehicles
-     SET status = $2,
-         updated_at = NOW()
-     WHERE id = $1
-     RETURNING id, code, status, battery, park_id,
+         SET status = $2,
+             updated_at = NOW()
+         WHERE id = $1
+             RETURNING
+       id,
+       code,
+       status,
+       battery,
+       park_id,
+       parking_fence_id,
        ST_X(location::geometry) AS longitude,
        ST_Y(location::geometry) AS latitude`,
         [id, status]

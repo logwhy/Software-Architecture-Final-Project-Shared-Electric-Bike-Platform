@@ -92,7 +92,8 @@ CREATE TABLE public.park_fences (
                                     coordinates     text,                            -- 暂时用文本存边界坐标（如 JSON 或 "lng,lat;lng,lat"）
                                     created_at      timestamp without time zone DEFAULT now()
 );
-
+ALTER TABLE public.park_fences
+    ADD COLUMN max_vehicles integer;
 
 --
 -- TOC entry 231 (class 1259 OID 75946)
@@ -287,6 +288,9 @@ CREATE TABLE public.vehicles (
     CONSTRAINT vehicles_battery_check CHECK (((battery >= 0) AND (battery <= 100))),
     CONSTRAINT vehicles_status_check CHECK (((status)::text = ANY (ARRAY[('IDLE'::character varying)::text, ('IN_USE'::character varying)::text, ('LOCKED'::character varying)::text, ('MAINTENANCE'::character varying)::text])))
 );
+
+ALTER TABLE public.vehicles
+    ADD COLUMN parking_fence_id integer REFERENCES public.park_fences(id);
 
 
 --

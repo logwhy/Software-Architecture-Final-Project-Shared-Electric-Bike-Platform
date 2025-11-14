@@ -34,7 +34,7 @@
               placeholder="按园区筛选"
               clearable
               style="width: 220px; margin-right: 12px;"
-              @change="loadVehicles"
+              @change="onParkChange"
           >
             <el-option
                 v-for="p in parks"
@@ -113,6 +113,15 @@
                 <span v-else class="text-muted">未设置</span>
               </template>
             </el-table-column>
+            <el-table-column label="停车区" width="160">
+              <template #default="scope">
+    <span v-if="scope.row.parking_fence_id">
+      {{ parkingFenceName(scope.row.parking_fence_id) }}
+    </span>
+                <span v-else class="text-muted">未指定</span>
+              </template>
+            </el-table-column>
+
             <el-table-column label="操作" width="260">
               <template #default="scope">
                 <el-button size="small" @click="openEditDialog(scope.row)">
@@ -146,6 +155,48 @@
             </el-table-column>
           </el-table>
         </el-card>
+        <el-card class="content-card" shadow="hover" style="margin-bottom: 16px;">
+          <template #header>
+            <div class="content-header">
+              <el-icon class="content-icon"><Location /></el-icon>
+              <span class="content-title">停车区容量概览</span>
+            </div>
+          </template>
+
+          <div v-if="!filterParkId" class="text-muted">
+            请先选择一个园区查看停车区容量情况。
+          </div>
+          <el-skeleton v-else :loading="loadingStats" animated>
+            <template #template>
+              <el-skeleton-item variant="text" style="width: 60%;" />
+              <el-skeleton-item variant="text" style="width: 40%; margin-top: 8px;" />
+            </template>
+            <template #default>
+              <div v-if="parkingStats.length === 0" class="text-muted">
+                当前园区暂无停车区围栏。
+              </div>
+              <el-row v-else :gutter="12">
+                <el-col
+                    v-for="s in parkingStats"
+                    :key="s.id"
+                    :span="8"
+                    style="margin-bottom: 8px;"
+                >
+                  <el-card shadow="never" :class="s.overloaded ? 'overloaded-card' : ''">
+                    <div class="stat-name">{{ s.name }}</div>
+                    <div class="stat-line">
+                      车辆数：{{ s.currentCount }} / {{ s.maxVehicles ?? '未设置' }}
+                    </div>
+                    <div v-if="s.overloaded" class="stat-alert">
+                      <el-tag type="danger" size="small">已超阈值</el-tag>
+                    </div>
+                  </el-card>
+                </el-col>
+              </el-row>
+            </template>
+          </el-skeleton>
+        </el-card>
+
 
         <!-- 新增 / 编辑车辆弹窗 -->
         <el-dialog
@@ -167,6 +218,22 @@
                 />
               </el-select>
             </el-form-item>
+            <el-form-item label="停车区（可选）">
+              <el-select
+                  v-model="form.parkingFenceId"
+                  placeholder="选择停车区（可留空）"
+                  clearable
+                  style="width: 100%;"
+              >
+                <el-option
+                    v-for="f in parkingFences"
+                    :key="f.id"
+                    :label="f.name"
+                    :value="f.id"
+                />
+              </el-select>
+            </el-form-item>
+
             <el-form-item label="电量">
               <el-input
                   v-model="form.battery"
@@ -203,6 +270,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Setting, UserFilled, SwitchButton, Location } from '@element-plus/icons-vue'
 
 const router = useRouter()
+// 停车围栏列表（当前园区）
+const parkingFences = ref([])
+
+// 停车围栏统计
+const parkingStats = ref([])
+const loadingStats = ref(false)
 
 const user = ref({})
 const roleMap = {
@@ -234,7 +307,8 @@ const form = ref({
   parkId: null,
   battery: 100,
   longitude: '',
-  latitude: ''
+  latitude: '',
+  parkingFenceId: null
 })
 
 const parkName = (parkId) => {
@@ -268,6 +342,40 @@ const loadVehicles = async () => {
   }
 }
 
+const loadParkingFences = async () => {
+  if (!filterParkId.value) {
+    parkingFences.value = []
+    return
+  }
+  try {
+    const res = await axios.get('/api/admin/park-fences', {
+      params: { parkId: filterParkId.value }
+    })
+    // 只保留停车区类型
+    parkingFences.value = (res.data || []).filter(f => f.fence_type === 'PARKING')
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || '获取停车区失败')
+  }
+}
+
+const loadParkingStats = async () => {
+  if (!filterParkId.value) {
+    parkingStats.value = []
+    return
+  }
+  loadingStats.value = true
+  try {
+    const res = await axios.get('/api/admin/park-fences/stats', {
+      params: { parkId: filterParkId.value }
+    })
+    parkingStats.value = res.data || []
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || '获取停车区统计失败')
+  } finally {
+    loadingStats.value = false
+  }
+}
+
 const openCreateDialog = () => {
   form.value = {
     id: null,
@@ -275,7 +383,8 @@ const openCreateDialog = () => {
     parkId: filterParkId.value || (parks.value[0] && parks.value[0].id) || null,
     battery: 100,
     longitude: '',
-    latitude: ''
+    latitude: '',
+    parkingFenceId: null
   }
   dialogVisible.value = true
 }
@@ -287,7 +396,8 @@ const openEditDialog = (row) => {
     parkId: row.park_id,
     battery: row.battery,
     longitude: row.longitude ?? '',
-    latitude: row.latitude ?? ''
+    latitude: row.latitude ?? '',
+    parkingFenceId: row.parking_fence_id ?? null
   }
   dialogVisible.value = true
 }
@@ -302,7 +412,8 @@ const submitForm = async () => {
     parkId: form.value.parkId,
     battery: form.value.battery,
     longitude: form.value.longitude,
-    latitude: form.value.latitude
+    latitude: form.value.latitude,
+    parkingFenceId: form.value.parkingFenceId
   }
   try {
     if (form.value.id) {
@@ -327,6 +438,11 @@ const setMaintenance = async (row) => {
   } catch (err) {
     ElMessage.error(err.response?.data?.message || '设置维修状态失败')
   }
+}
+
+const parkingFenceName = (fenceId) => {
+  const f = parkingFences.value.find(f => f.id === fenceId)
+  return f ? f.name : ''
 }
 
 const setIdle = async (row) => {
@@ -357,13 +473,17 @@ const deleteVehicle = async (row) => {
     ElMessage.error(err.response?.data?.message || '删除车辆失败')
   }
 }
+const onParkChange = async () => {
+  await loadVehicles()
+  await loadParkingFences()
+  await loadParkingStats()
+}
 
 const logout = () => {
   localStorage.clear()
   ElMessage.success('已退出管理后台')
   router.push('/login')
 }
-
 onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -377,8 +497,15 @@ onMounted(async () => {
   }
 
   await loadParks()
+  // 默认选第一个园区
+  if (!filterParkId.value && parks.value.length > 0) {
+    filterParkId.value = parks.value[0].id
+  }
   await loadVehicles()
+  await loadParkingFences()
+  await loadParkingStats()
 })
+
 </script>
 
 <style scoped>
@@ -394,4 +521,19 @@ onMounted(async () => {
   color: #a8abb2;
   font-size: 13px;
 }
+.stat-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.stat-line {
+  font-size: 13px;
+  color: #606266;
+}
+.stat-alert {
+  margin-top: 4px;
+}
+.overloaded-card {
+  border-color: #f56c6c;
+}
+
 </style>

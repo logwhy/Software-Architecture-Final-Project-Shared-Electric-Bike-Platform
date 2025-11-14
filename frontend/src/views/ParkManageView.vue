@@ -56,6 +56,11 @@
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="name" label="名称" width="160" />
         <el-table-column prop="location" label="位置描述" width="200" />
+        <el-table-column label="最大车辆数" width="120">
+          <template #default="scope">
+            <span>{{ scope.row.max_vehicles ?? '未设置' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="中心点" width="200">
           <template #default="scope">
             <span>经度: {{ scope.row.center_lng }}，纬度: {{ scope.row.center_lat }}</span>
@@ -122,6 +127,15 @@
               placeholder="暂时用文本维护坐标，例如 lng,lat;lng,lat;..."
           />
         </el-form-item>
+        <el-form-item label="最大车辆数">
+          <el-input
+              v-model="fenceForm.maxVehicles"
+              type="number"
+              min="0"
+              placeholder="可选，比如 10"
+          />
+        </el-form-item>
+
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -262,7 +276,8 @@ const fenceForm = ref({
   id: null,
   fenceType: '',
   name: '',
-  coordinates: ''
+  coordinates: '',
+  maxVehicles: ''
 })
 
 const shortBoundary = (text) => {
@@ -291,7 +306,8 @@ const openCreateParkDialog = () => {
     location: '',
     centerLng: '',
     centerLat: '',
-    boundaryCoordinates: ''
+    boundaryCoordinates: '',
+    maxVehicles: ''
   }
   parkDialogVisible.value = true
 }
@@ -304,7 +320,8 @@ const openEditParkDialog = (row) => {
     location: row.location || '',
     centerLng: row.center_lng ?? '',
     centerLat: row.center_lat ?? '',
-    boundaryCoordinates: row.boundary_coordinates || ''
+    boundaryCoordinates: row.boundary_coordinates || '',
+    maxVehicles: row.max_vehicles ?? ''
   }
   parkDialogVisible.value = true
 }
@@ -320,7 +337,8 @@ const submitPark = async () => {
     location: parkForm.value.location,
     centerLng: parkForm.value.centerLng,
     centerLat: parkForm.value.centerLat,
-    boundaryCoordinates: parkForm.value.boundaryCoordinates
+    boundaryCoordinates: parkForm.value.boundaryCoordinates,
+    maxVehicles: fenceForm.value.maxVehicles === '' ? null : Number(fenceForm.value.maxVehicles)
   }
   try {
     if (parkForm.value.id) {
