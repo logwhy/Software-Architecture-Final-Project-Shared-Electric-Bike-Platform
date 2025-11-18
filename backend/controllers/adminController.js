@@ -262,13 +262,16 @@ const createPark = async (req, res) => {
         if (!name) {
             return res.status(400).json({ message: '园区名称必填' });
         }
+        const bc = boundaryCoordinates && boundaryCoordinates.length > 0
+            ? boundaryCoordinates               // 已经是合法 JSON 字符串
+            : null;                            // 没有坐标时写入 NULL
 
         const park = await parkModel.createPark({
             name,
             location: location || '',
             centerLng: centerLng ? Number(centerLng) : null,
             centerLat: centerLat ? Number(centerLat) : null,
-            boundaryCoordinates: boundaryCoordinates || ''
+            boundaryCoordinates:  bc,
         });
 
         res.status(201).json(park);
@@ -287,13 +290,16 @@ const updatePark = async (req, res) => {
         if (!name) {
             return res.status(400).json({ message: '园区名称必填' });
         }
+        const bc = boundaryCoordinates && boundaryCoordinates.length > 0
+            ? boundaryCoordinates               // 已经是合法 JSON 字符串
+            : null;                            // 没有坐标时写入 NULL
 
         const park = await parkModel.updatePark(Number(id), {
             name,
             location: location || '',
             centerLng: centerLng ? Number(centerLng) : null,
             centerLat: centerLat ? Number(centerLat) : null,
-            boundaryCoordinates: boundaryCoordinates || ''
+            boundaryCoordinates: bc,
         });
 
         if (!park) {

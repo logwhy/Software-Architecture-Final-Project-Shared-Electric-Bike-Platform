@@ -124,7 +124,7 @@
               type="textarea"
               :rows="4"
               v-model="parkForm.boundaryCoordinates"
-              placeholder="暂时用文本维护坐标，例如 lng,lat;lng,lat;..."
+              placeholder="坐标，例如 lng,lat;lng,lat;..."
           />
         </el-form-item>
         <el-form-item label="最大车辆数">
