@@ -355,4 +355,47 @@ const finishRide = async () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid #e4e7ed;
 }
+
+@media (max-width: 768px) {
+  .riding-container {
+    padding: 12px 8px 16px;
+    justify-content: flex-start; /* 从顶部开始而不是居中，避免小屏压缩 */
+  }
+
+  .riding-card {
+    margin-top: 12px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .card-header {
+    padding: 8px 4px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .status-tag {
+    font-size: 12px;
+  }
+
+  .timer-section,
+  .fee-section,
+  .action-section {
+    margin-top: 12px;
+  }
+
+  .finish-btn {
+    width: 100%;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .footer-tip {
+    margin-top: 16px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
 </style>

@@ -15,13 +15,25 @@
         :map="map"
     />
 
-    <!-- 车辆列表 -->
+    <!-- 车辆列表开关按钮（自行车图标） -->
+    <button
+        class="vehicle-toggle-btn"
+        type="button"
+        @click="toggleVehiclePanel"
+    >
+      <el-icon>
+        <Bicycle />
+      </el-icon>
+    </button>
+
+    <!-- 车辆列表 - 右侧抽屉 -->
     <VehicleList
         :vehicles="vehicles"
         :current-ride="currentRide"
         @vehicle-focus="focusVehicle"
-        class="vehicle-list-container"
+        :class="['vehicle-list-container', { 'is-open': isVehiclePanelOpen }]"
     />
+
 
     <!-- 扫码解锁弹窗 -->
     <el-dialog
@@ -54,6 +66,7 @@ import { ElMessage } from 'element-plus'
 import ParkSelector from './components/ParkSelector.vue'
 import VehicleList from './components/VehicleList.vue'
 import ParkBoundary from './components/ParkBoundary.vue'
+import { Bicycle } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const vehicles = ref([])
@@ -63,6 +76,7 @@ const unlocking = ref(false)
 const allParks = ref([]) // 所有园区数据，只用于边界显示
 const currentPark = ref(null) // 当前选中园区
 const mapInitialized = ref(false)
+const isVehiclePanelOpen = ref(false) // 附近车辆抽屉是否打开
 
 let parkPolygons = [] // 单独管理园区边界
 let map = null
@@ -278,10 +292,21 @@ const cancelUnlock = () => {
   unlockDialog.value.visible = false
 }
 
+const toggleVehiclePanel = () => {
+  isVehiclePanelOpen.value = !isVehiclePanelOpen.value
+}
+
+
 onMounted(async () => {
+  // PC 端默认展开，手机端默认收起
+  if (window.innerWidth > 768) {
+    isVehiclePanelOpen.value = true
+  }
+
   await initMap()
   currentRide.value = JSON.parse(localStorage.getItem('current_ride') || 'null')
 })
+
 
 onUnmounted(() => {
   if (map) map.destroy()
@@ -291,7 +316,9 @@ onUnmounted(() => {
 <style scoped>
 .map-container {
   position: relative;
+  width: 100%;
   height: 100%;
+  min-height: 0; /* 配合父 flex 布局，避免溢出 */
 }
 
 #amap-container {
@@ -299,9 +326,73 @@ onUnmounted(() => {
   height: 100%;
 }
 
+/* PC 端保持右上角卡片 */
 .vehicle-list-container {
   position: absolute;
   top: 20px;
   right: 20px;
+}
+
+/* 自行车图标按钮：悬浮在右侧 */
+.vehicle-toggle-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #409eff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.vehicle-toggle-btn .el-icon {
+  font-size: 20px;
+}
+
+.vehicle-toggle-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* ------- 手机端适配 ------- */
+@media (max-width: 768px) {
+  .vehicle-list-container {
+    top: 16px;
+    bottom: 16px;
+    right: 0;
+    width: 70%;
+    max-width: 320px;
+    background: #ffffff;
+    border-radius: 12px 0 0 12px;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);      /* 默认藏在右侧 */
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+
+  .vehicle-list-container.is-open {
+    transform: translateX(0);         /* 打开时滑入 */
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* 手机端按钮稍微靠下一点，避免挡住系统按钮 */
+  .vehicle-toggle-btn {
+    top: auto;
+    bottom: 80px;
+    transform: none;
+  }
+
+  .vehicle-toggle-btn:active {
+    transform: scale(0.95);
+  }
 }
 </style>

@@ -161,11 +161,13 @@ const logout = () => {
 
 <style scoped>
 .home-container {
-  height: 100vh;
+  height: 100dvh;           /* 兼容新浏览器的地址栏变化 */
+  min-height: 100vh;        /* 老浏览器兜底 */
   display: flex;
   flex-direction: column;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
 }
+
 
 .header {
   height: 64px;
@@ -184,6 +186,35 @@ const logout = () => {
   gap: 12px;
 }
 
+@media (max-width: 768px) {
+  /* 头部左右内边距缩小一点 */
+  .header {
+    padding: 0 12px;
+  }
+
+  /* 顶部按钮区域：挤一挤 + 支持横向滚动 */
+  .header-actions {
+    flex: 1;                         /* 占满右侧空间 */
+    justify-content: flex-end;       /* 靠右排 */
+    gap: 6px;                        /* 按钮之间距离缩小 */
+    overflow-x: auto;                /* 超出时横向滚动 */
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;             /* 按钮不换行，横向排成一条 */
+  }
+
+  /* 隐藏手机端的横向滚动条（可选） */
+  .header-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 按钮本身再瘦一点 */
+  .header-actions .el-button {
+    flex: 0 0 auto;                  /* 不要被压缩成很窄 */
+    padding: 0 10px;
+    height: 30px;
+    font-size: 12px;
+  }
+}
 
 .user-info {
   display: flex;
@@ -283,5 +314,105 @@ const logout = () => {
   overflow: auto;
   background: #f9fafc;
   height: 100%;
+}
+@media (max-width: 768px) {
+  /* 顶部栏更紧凑一点 */
+  .header {
+    height: 40px;
+    padding: 0;
+  }
+
+  .user-info {
+    gap: 8px;
+  }
+
+  .name {
+    font-size: 14px;
+  }
+
+  .role {
+    font-size: 12px;
+  }
+
+  .header-actions {
+    padding: 0;           /* 移除内边距 */
+    margin: 0;            /* 移除外边距 */
+    width: 100%;
+    gap: 8px;
+  }
+
+  .header-actions {
+    flex: 1;                         /* 占满右侧空间 */
+    justify-content: flex-end;       /* 靠右排 */
+    gap: 6px;                        /* 按钮之间距离缩小 */
+    overflow-x: auto;                /* 超出时横向滚动 */
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;             /* 按钮不换行，横向排成一条 */
+  }
+
+  /* 主体从 左右布局 -> 上下布局 */
+  .main-content {
+    flex-direction: column;
+  }
+
+  /* 左侧菜单改成顶部导航条 */
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #ebeef5;
+    padding: 8px 8px 4px;
+  }
+
+  .sidebar-header {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  /* el-menu 改成一排横向 tab 样式 */
+  .custom-menu {
+    display: flex;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .custom-menu .el-menu-item {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 0;
+  }
+
+  .menu-icon {
+    font-size: 16px;
+  }
+
+  .menu-text {
+    font-size: 12px;
+  }
+
+  /* 右侧内容占满剩余高度，避免下面留白 */
+  .content-area {
+    flex: 1;
+    height: auto;
+    overflow: hidden; /* 防止双层滚动 */
+  }
+
+  /* 让 MapView / RidingView 自己内部滚动 */
+  .content-area > * {
+    height: 100%;
+    overflow: auto;
+  }
+  /* 隐藏手机端的横向滚动条（可选） */
+  .header-actions::-webkit-scrollbar {
+    display: flex;
+  }
+
+  /* 按钮本身再瘦一点 */
+  .header-actions .el-button {
+    flex: 0 0 auto;                  /* 不要被压缩成很窄 */
+    padding: 0 10px;
+    height: 30px;
+    font-size: 12px;
+  }
 }
 </style>
