@@ -1,6 +1,6 @@
 软件架构
 介绍
-崔书豪、王舒睿与贾学成的小组仓库
+小组仓库
 
 软件架构
 软件架构说明
@@ -144,4 +144,5 @@ VALUES
 ((SELECT id FROM users WHERE phone='13800000001' LIMIT 1), 1, 1, NOW() - INTERVAL '1 days', NOW() - INTERVAL '1 days' + INTERVAL '8 minutes', 1.5, 'COMPLETED', ST_GeomFromText('POINT(116.397428 39.90923)', 4326), ST_GeomFromText('POINT(116.399000 39.91000)', 4326), NOW(), NOW()),
 ((SELECT id FROM users WHERE phone='13800000003' LIMIT 1), 3, 1, NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours 45 minutes', 4.0, 'COMPLETED', ST_GeomFromText('POINT(116.380000 39.900000)', 4326), ST_GeomFromText('POINT(116.390000 39.905000)', 4326), NOW(), NOW())
 ON CONFLICT DO NOTHING;
+
 
